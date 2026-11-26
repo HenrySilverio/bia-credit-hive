@@ -56,11 +56,16 @@ O comando lê as últimas 3.000 linhas, que cobrem de 24 a 26/11. Com essa lista
 Me diga qual pergunta a métrica tem que responder e para quem, e eu ordeno a partir daí.
 
 ```bash
-ARQ="/c/caminho/que/apareceu.jsonl"
+ARQ="$HOME/.henriworks/uso/otel/copilot-otel.jsonl"
+ls -la "$ARQ"
 node.exe -e '
-const fs=require("fs");const ks=new Set();
-const w=(o,p)=>{if(Array.isArray(o))o.slice(0,5).forEach(x=>w(x,p+"[]"));else if(o&&typeof o==="object"){if(typeof o.key==="string"){ks.add(p+"{"+o.key+"}");return}for(const k in o)w(o[k],p?p+"."+k:k)}else ks.add(p)};
-for(const l of fs.readFileSync(process.argv[1],"utf8").split("\n").slice(-3000)){try{w(JSON.parse(l),"")}catch{}}
-console.log([...ks].sort().join("\n"))' "$(cygpath -w "$ARQ")" > ~/Downloads/otel-campos.txt
+const fs=require("fs");const f=process.argv[1];const tam=fs.statSync(f).size;const N=Math.min(tam,64*1024*1024);
+const b=Buffer.alloc(N);const fd=fs.openSync(f,"r");fs.readSync(fd,b,0,N,tam-N);fs.closeSync(fd);
+const ls=b.toString("utf8").split("\n");if(N<tam)ls.shift();
+const ks=new Map();const add=k=>ks.set(k,(ks.get(k)||0)+1);
+const w=(o,p)=>{if(Array.isArray(o))o.forEach(x=>w(x,p+"[]"));else if(o&&typeof o==="object"){if(typeof o.key==="string"){add(p+"{"+o.key+"}");return}for(const k in o)w(o[k],p?p+"."+k:k)}else add(p)};
+let ok=0;for(const l of ls.slice(-3000)){try{w(JSON.parse(l),"");ok++}catch{}}
+console.error("arquivo "+(tam/1048576).toFixed(0)+" MB; linhas lidas "+ok);
+console.log([...ks].sort().map(([k,n])=>n+"\t"+k).join("\n"))' "$(cygpath -w "$ARQ")" > ~/Downloads/otel-campos.txt
 wc -l ~/Downloads/otel-campos.txt
 ```
