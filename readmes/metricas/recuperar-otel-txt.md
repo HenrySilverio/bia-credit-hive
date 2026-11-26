@@ -69,3 +69,31 @@ console.error("arquivo "+(tam/1048576).toFixed(0)+" MB; linhas lidas "+ok);
 console.log([...ks].sort().map(([k,n])=>n+"\t"+k).join("\n"))' "$(cygpath -w "$ARQ")" > ~/Downloads/otel-campos.txt
 wc -l ~/Downloads/otel-campos.txt
 ```
+
+```bash
+ARQ="$HOME/.henriworks/uso/otel/copilot-otel.jsonl"
+EV="$HOME/.bchive/uso/eventos/2026-11.jsonl"
+node.exe -e '
+const fs=require("fs"),rl=require("readline");
+const [f,ev]=process.argv.slice(1);
+const sids=new Set();for(const l of fs.readFileSync(ev,"utf8").split("\n")){try{sids.add(JSON.parse(l).sid)}catch{}}
+const c={spans:0,logs:0,metricas:0,outras:0},ag={},mod={},op={},dia={},evn={},chaves=new Set(),sess=new Set();let bate=0,comTok=0;
+const inc=(o,k)=>{o[k]=(o[k]||0)+1};
+const r=rl.createInterface({input:fs.createReadStream(f),crlfDelay:Infinity});
+r.on("line",l=>{
+ if(l.includes("\"scopeMetrics\"")){c.metricas++;return}
+ let o;try{o=JSON.parse(l)}catch{c.outras++;return}
+ const a=o.attributes||{};
+ for(const k of Object.keys(a)) if(/session|conversation|chat|request_id|turn|interaction|parent/i.test(k)) chaves.add(k);
+ if(!o.traceId){ if(o.body!==undefined||a["event.name"]){c.logs++;inc(evn,a["event.name"]||"(sem)")} else c.outras++; return}
+ c.spans++;
+ inc(ag,a["gen_ai.agent.name"]||"(sem)");inc(mod,a["gen_ai.request.model"]||"(sem)");inc(op,a["gen_ai.operation.name"]||"(sem)");
+ if(a["gen_ai.usage.input_tokens"]!=null)comTok++;
+ const s=(o.resource&&((o.resource.attributes||{})["session.id"]||(o.resource._memoizedAttributes||{})["session.id"]));
+ if(s){sess.add(s);if(sids.has(s))bate++}
+ const t=Array.isArray(o.startTime)?o.startTime[0]:null;if(t)inc(dia,new Date(t*1000).toISOString().slice(0,10));
+});
+r.on("close",()=>console.log(JSON.stringify({linhas:c,spansComTokens:comTok,agentes:ag,modelos:mod,operacoes:op,eventosDeLog:evn,porDia:dia,chavesLigadasASessao:[...chaves],sessionIdsDistintos:sess.size,spansComSessionIdDoHive:bate},null,1)));
+' "$(cygpath -w "$ARQ")" "$(cygpath -w "$EV")" > ~/Downloads/otel-diagnostico.json
+cat ~/Downloads/otel-diagnostico.json
+```
