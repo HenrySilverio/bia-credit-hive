@@ -97,3 +97,47 @@ Esse comando só mostra, não apaga nada. Pode levar um minuto.
 Nas duas situações, ignore as três linhas "confira": as chaves de telemetria do VS Code e as duas variáveis ficam.
 
 Ao terminar, me mande a saída dos passos 2, 4 (a prévia) e 5.
+
+----------
+A telemetria antiga está salva e o VS Code já aponta para o lugar novo. Falta corrigir uma variável de ambiente, e a pasta antiga já não existe.
+
+- **Telemetria salva:** `~/.bchive/uso/otel/copilot-otel.jsonl` tem 4,6 MB e foi criado às 20:24. Era o arquivo de mais de 500 MB, sem as métricas.
+- **Pasta antiga:** `~/.henriworks/uso/otel/` não existe mais. Por isso o script respondeu "Nada a limpar" na sua pasta de usuário.
+- **O que falta:** a variável `COPILOT_OTEL_FILE_EXPORTER_PATH` ainda aponta para `C:\Users\…\.henriworks\uso\otel\copilot-otel.jsonl`, uma pasta que não existe mais. Quem grava por essa variável hoje grava em lugar nenhum. É bem provável que essa variável seja a do harness Copilot.
+
+**1. Ver onde a variável foi criada**
+```bash
+reg query 'HKCU\Environment' //v COPILOT_OTEL_FILE_EXPORTER_PATH
+reg query 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' //v COPILOT_OTEL_FILE_EXPORTER_PATH
+```
+- **Aparece na primeira (HKCU):** foi você quem criou. Siga para o passo 2.
+- **Aparece só na segunda (HKLM):** foi a TI. Pare e me mande a saída, porque essa não se mexe.
+
+**2. Apontar a variável para um arquivo separado**
+```bash
+setx COPILOT_OTEL_FILE_EXPORTER_PATH "$(cygpath -w "$HOME/.bchive/uso/otel/copilot-harness-otel.jsonl")"
+```
+A resposta esperada é "ÊXITO: o valor especificado foi salvo." Usei um arquivo diferente de propósito: o que aparecer nele veio pela variável e não pelo `settings.json`, e isso responde de vez se o harness grava telemetria. O Hive já lê os dois, então não precisa mudar nada no plugin.
+
+**3. Recarregar e testar**
+1. Feche o VS Code e o Git Bash. O `setx` só vale para programas abertos depois dele.
+2. Abra os dois de novo.
+3. No VS Code, faça uma pergunta a um agente do Hive, por exemplo `bchive`, para gerar uma sessão do fluxo.
+4. No Git Bash, rode:
+```bash
+echo "$COPILOT_OTEL_FILE_EXPORTER_PATH"
+ls -la ~/.bchive/uso/otel/
+```
+- **Aparece `copilot-harness-otel.jsonl`:** o harness grava pela variável, e a falta de cobertura está resolvida.
+- **Só o `copilot-otel.jsonl` cresceu:** o harness não exporta por essa variável. Aí o caminho é a TI.
+
+**4. Limpar os repositórios (por último)**
+
+A sua pasta de usuário já está limpa. Falta só ver se ficaram restos dentro dos repositórios:
+```bash
+cd ~/Downloads
+bash limpar-henriworks.sh --procurar ~
+```
+Esse comando só mostra, não apaga nada. Se aparecer alguma linha "apagaria", me mande a saída antes de rodar com `--aplicar`.
+
+Me mande a saída dos passos 1 e 3.
