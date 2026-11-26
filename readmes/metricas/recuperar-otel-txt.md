@@ -97,3 +97,29 @@ r.on("close",()=>console.log(JSON.stringify({linhas:c,spansComTokens:comTok,agen
 ' "$(cygpath -w "$ARQ")" "$(cygpath -w "$EV")" > ~/Downloads/otel-diagnostico.json
 cat ~/Downloads/otel-diagnostico.json
 ```
+
+```bash
+ARQ="$HOME/.henriworks/uso/otel/copilot-otel.jsonl"
+EVD="$HOME/.bchive/uso/eventos"
+node.exe -e '
+const fs=require("fs"),rl=require("readline"),path=require("path");
+const [f,dir]=process.argv.slice(1);
+const sids=new Set();for(const n of fs.readdirSync(dir).filter(n=>n.endsWith(".jsonl")))for(const l of fs.readFileSync(path.join(dir,n),"utf8").split("\n")){try{sids.add(JSON.parse(l).sid)}catch{}}
+const K=["gen_ai.conversation.id","copilot_chat.session_id","copilot_chat.chat_session_id","copilot_chat.parent_chat_session_id","github.copilot.interaction_id","session.id"];
+const r={};for(const k of K)r[k]={presente:0,bateComHive:0};const serv={},porDiaServ={};
+const inc=(o,k)=>{o[k]=(o[k]||0)+1};
+const it=rl.createInterface({input:fs.createReadStream(f),crlfDelay:Infinity});
+it.on("line",l=>{
+ if(l.includes("\"scopeMetrics\""))return;
+ let o;try{o=JSON.parse(l)}catch{return}
+ const a=o.attributes||{},ra=(o.resource&&(o.resource.attributes||o.resource._memoizedAttributes))||{};
+ for(const k of K){const v=a[k]!==undefined?a[k]:ra[k];if(v!==undefined&&v!==null&&v!==""){r[k].presente++;if(sids.has(String(v)))r[k].bateComHive++}}
+ const s=ra["service.name"]||"(sem)";inc(serv,s);
+ const t=Array.isArray(o.startTime)?o.startTime[0]:(Array.isArray(o.hrTime)?o.hrTime[0]:null);
+ if(t){const d=new Date(t*1000).toISOString().slice(0,10);if(d>="2026-11-23")inc(porDiaServ,d+" "+s)}
+});
+it.on("close",()=>console.log(JSON.stringify({sessoesDoHive:sids.size,chaves:r,servicos:serv,servicoPorDiaDesde23:porDiaServ},null,1)));
+' "$(cygpath -w "$ARQ")" "$(cygpath -w "$EVD")" > ~/Downloads/otel-ligacao.json
+cat ~/Downloads/otel-ligacao.json
+env | grep -i otel | sed 's/=.*/=(definida)/'
+```
