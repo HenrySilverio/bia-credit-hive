@@ -141,3 +141,31 @@ bash limpar-henriworks.sh --procurar ~
 Esse comando só mostra, não apaga nada. Se aparecer alguma linha "apagaria", me mande a saída antes de rodar com `--aplicar`.
 
 Me mande a saída dos passos 1 e 3.
+
+------------------------
+-----------------------
+O `reg` foi bloqueado pela política do banco, mas dá para descobrir a mesma coisa pelo PowerShell, que só lê o valor e não edita o registro. Também vou conferir se a variável foi definida nos arquivos de inicialização do Git Bash.
+
+**1. Onde a variável está definida**
+```bash
+powershell -NoProfile -Command "'Usuario: ' + [Environment]::GetEnvironmentVariable('COPILOT_OTEL_FILE_EXPORTER_PATH','User'); 'Maquina: ' + [Environment]::GetEnvironmentVariable('COPILOT_OTEL_FILE_EXPORTER_PATH','Machine')"
+grep -n "COPILOT_OTEL" ~/.bashrc ~/.bash_profile ~/.profile 2>/dev/null
+```
+
+Pela saída:
+
+| O que aparece | O que fazer |
+| --- | --- |
+| `Usuario:` com o caminho do `.henriworks` | Foi você quem criou. Rode o passo 2 |
+| Só `Maquina:` preenchido | Foi a TI. Não mexa e me mande a saída |
+| Alguma linha do `grep` (`.bashrc` ou `.bash_profile`) | Me mande a linha. Ela só vale para o Git Bash, e o ajuste é outro |
+
+**2. Só se o caminho aparecer em `Usuario:`**
+```bash
+NOVO="$(cygpath -w "$HOME/.bchive/uso/otel/copilot-harness-otel.jsonl")"
+powershell -NoProfile -Command "[Environment]::SetEnvironmentVariable('COPILOT_OTEL_FILE_EXPORTER_PATH','$NOVO','User')"
+powershell -NoProfile -Command "'Usuario: ' + [Environment]::GetEnvironmentVariable('COPILOT_OTEL_FILE_EXPORTER_PATH','User')"
+```
+A última linha tem que mostrar o caminho novo, terminando em `.bchive\uso\otel\copilot-harness-otel.jsonl`. Se der erro de permissão, me mande a mensagem.
+
+Depois disso, vale o passo 3 da mensagem anterior: feche o VS Code e o Git Bash, abra de novo, faça uma pergunta a um agente do Hive e rode `ls -la ~/.bchive/uso/otel/`.
