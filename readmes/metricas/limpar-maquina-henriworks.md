@@ -65,4 +65,35 @@ LC_ALL=C grep -v '"scopeMetrics"' "$F" > "$F.tmp" && mv "$F.tmp" "$F" && ls -la 
 
 **O que esta limpeza não resolve.** Pelo próprio código do Hive, a telemetria do harness Copilot só existe se a TI ligar na configuração gerenciada. O caminho que o Hive espera é `~/copilot-telemetry/agent-host-otel.jsonl`, e ele não existe na sua máquina. Isso explica a falta de cobertura das sessões do fluxo: depois desta limpeza, o chat do VS Code fica coberto, mas o harness continua sem telemetria. É um pedido para a TI. Quando você quiser, eu escrevo o pedido com o que exatamente precisa ser ligado.
 
+O passo 4 ficou confuso por culpa minha: deixei um caminho de exemplo e as duas linhas juntas. Não estragou nada. O script não achou nenhum repositório nesse caminho, que não existe, e na sua pasta de usuário respondeu "Nada a limpar". Nada foi apagado.
+
+A tela mostra duas coisas importantes:
+
+1. **O passo 3 deu certo.** A linha do `outfile` agora aponta para `.bchive`.
+2. **O script não achou a pasta `~/.henriworks`.** Mas às 19:39 o arquivo de telemetria estava lá. Antes de continuar, preciso saber se você rodou o passo 2 e onde a telemetria está agora.
+
+Rode este bloco e me mande a saída:
+
+```bash
+ls -la ~/.henriworks/uso/otel/ 2>&1 | head -5
+ls -la ~/.bchive/uso/otel/ 2>&1 | head -5
+echo "COPILOT_OTEL_FILE_EXPORTER_PATH = $COPILOT_OTEL_FILE_EXPORTER_PATH"
+echo "COPILOT_OTEL_ENABLED = $COPILOT_OTEL_ENABLED"
+```
+
+As duas variáveis de ambiente que o script mostrou com "confira" são uma boa notícia. `COPILOT_OTEL_FILE_EXPORTER_PATH` e `COPILOT_OTEL_ENABLED` são as que o harness Copilot usa para gravar a própria telemetria. Elas podem ser a peça que faltava para cobrir as sessões do fluxo. **Não apague nenhuma das duas.** Preciso ver para onde a primeira aponta.
+
+**Passo 4, explicado direito.** O script procura restos do HenriWorks dentro dos seus repositórios. O `--procurar` recebe a pasta onde ficam os repositórios. Como não sei qual é, use a sua pasta de usuário inteira:
+
+```bash
+cd ~/Downloads
+bash limpar-henriworks.sh --procurar ~
+```
+
+Esse comando só mostra, não apaga nada. Pode levar um minuto.
+- **"Nada a limpar":** acabou o passo 4.
+- **Linhas com "apagaria":** me mande a saída e eu digo se pode rodar de novo com `--aplicar` no fim.
+
+Nas duas situações, ignore as três linhas "confira": as chaves de telemetria do VS Code e as duas variáveis ficam.
+
 Ao terminar, me mande a saída dos passos 2, 4 (a prévia) e 5.
