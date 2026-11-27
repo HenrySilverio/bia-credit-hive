@@ -29,3 +29,43 @@ Como vou ler:
 | `chatLigadoComTokens` maior que zero                 | **No app, tokens e modelo por sessão saem sem a TI.** No VS Code ainda dependem dela |
 | `chatComTokens` maior que zero e `ligadas` igual a 0 | O app grava tokens, mas com outro id de conversa. Investigo quais campos ele traz    |
 | `chatComTokens` igual a 0                            | O app grava só métricas, sem chamada por chamada                                     |
+--------------------------
+[!Tip] Novo Aqui
+
+No GitHub Copilot app, tokens e modelo das sessões do Hive saem sem a TI. O harness do app exporta pela variável de ambiente, e as chamadas ligam à sessão do hook pelo id da conversa.
+
+**O que a saída mostra** (no `copilot-otel.jsonl`, só as linhas do harness):
+- **Ligação com a sessão:** das 6 chamadas com tokens, 4 ligam às sessões do hook.
+- **Modelo:** é o da resposta, `gpt-6-luna`, o mesmo que o app disse ter escolhido pelo Copilot Fusion. Aparece também 1 `claude-haiku-5-5`, provavelmente uma tarefa de fundo, como o título.
+- **Agente:** aparece `bia-credit-hive:bchive`, num span de chamada de agente (`invoke_agent`).
+- **O outro arquivo:** o `copilot-harness-otel.jsonl` não tem nenhuma chamada, só 222 linhas sem operação. Foi o processo que ainda estava com o valor antigo da variável.
+
+**Como fica**
+
+| Onde a sessão roda | Métricas do hook | Tokens e modelo por sessão |
+| --- | --- | --- |
+| GitHub Copilot app | ✅ | ✅ basta a variável de ambiente na máquina do dev |
+| VS Code, harness Copilot | ✅ | ❌ depende da TI ou do board deles |
+
+A amostra é pequena (2 sessões, 10 eventos). Antes de cravar, vale confirmar com uma mudança real, de ponta a ponta, no app.
+
+**Dois riscos para conferir agora:**
+1. **Conteúdo:** no VS Code, o `captureContent: false` garante que prompt e resposta não são gravados. O app não lê o `settings.json`, então preciso ver se ele grava algum campo de conteúdo. A regra do Hive é nunca prompt, resposta ou código.
+2. **Tamanho:** o app gravou 3.023 linhas que não são chamada em poucos minutos (o arquivo foi de 4,8 para 7,7 MB), num formato que a compactação de hoje não pega.
+
+Este comando confere os dois e mostra só nomes de campo, nenhum valor:
+
+```bash
+node.exe -e '
+const fs=require("fs");const sus=new Set(),topo={};const inc=(o,k)=>{o[k]=(o[k]||0)+1};
+const w=(o,p)=>{if(Array.isArray(o)){o.slice(0,3).forEach(x=>w(x,p));return}if(o&&typeof o==="object")for(const k in o){if(/message|content|prompt|input\.|output\.|text|body|instruction|query|arguments|result/i.test(k)&&!/tokens|count|type|model|reason/i.test(k))sus.add((p?p+".":"")+k);w(o[k],(p?p+".":"")+k)}};
+for(const l of fs.readFileSync(process.argv[1],"utf8").split("\n")){let o;try{o=JSON.parse(l)}catch{continue}const ra=(o.resource&&(o.resource.attributes||o.resource._memoizedAttributes))||{};if(ra["service.name"]!=="github-copilot")continue;inc(topo,Object.keys(o).sort().join(","));w(o,"")}
+console.log(JSON.stringify({camposSuspeitos:[...sus].sort(),formatosDeLinha:topo},null,1))' "$(cygpath -w ~/.bchive/uso/otel/copilot-otel.jsonl)"
+```
+
+Como vou ler:
+- **`camposSuspeitos` vazio, ou só com nomes técnicos:** não grava conteúdo, e o app fica liberado para medir.
+- **Algum campo de mensagem ou conteúdo:** precisa desligar a captura de conteúdo no app antes de qualquer dev usar.
+- **`formatosDeLinha`:** mostra o formato das linhas extras, para eu ajustar a compactação.
+
+Atualizei a F9 na passagem com o resultado do app e essas duas pendências.
