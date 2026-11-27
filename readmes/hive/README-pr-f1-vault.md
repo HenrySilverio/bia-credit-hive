@@ -1,73 +1,53 @@
-Desta vez não vou corrigir só os cinco achados. Vou auditar o pacote inteiro atrás dos problemas do mesmo tipo: links simbólicos, fonte que muda, caminho que escapa, perda de metadado, limpeza da pasta temporária e conteúdo que escapa da validação. Começo pela fonte local e pelos helpers de que as correções dependem.
+São três bloqueantes, e os três procedem. Desta vez corrijo cada um como uma classe inteira, não só o ponto que o Copilot apontou:
 
-O código local é o mesmo que está na PR (commit `e83dfe8`). As correções mexem em quase todas as funções do `okf.mjs`, então leio o arquivo inteiro antes de editar.
+1. **Link simbólico na pasta de rascunhos.** Toda leitura e escrita dentro de `.bchive/vault/<extração>/` passa a conferir cada parte do caminho a partir da raiz do repositório: estado, plano, inventário, pacotes, rascunhos, resumos, vereditos e o registro de revisão.
+2. **Nota aprovada que sumiu.** O conjunto de rascunhos tem que ser exatamente o do plano, sem nota a mais nem a menos, na conferência, na revisão e na publicação.
+3. **CPF fora das notas.** Uma varredura de exposição única para todo arquivo de texto do `vault/` (`.md`, `.json`, `.yaml`, `.yml`, `.txt`, `.csv` e `.svg`), na publicação e no `checar-vault`.
 
-A função `caminhoSeguro` e o laço que tira `status` e `verified` ficaram confusos. Reescrevo os dois de forma direta antes de testar.
+Começo mapeando todo acesso a arquivo no `okf.mjs`.
 
-Agora a segunda parte da CLI: validação das fontes contra o plano, rascunhos sem link e dentro do plano, revisão presa ao commit, publicação e confirmação.
+Agora ligo a varredura na publicação e no `checar-vault`.
 
-Os escapes da expressão saíram certos. Agora a terceira parte: publicação e confirmação.
+As duas falhas são mensagens que mudaram de texto, não de comportamento: a publicação travou e o link foi recusado nos dois casos. Ajusto as duas expectativas do teste.
 
-O script parou antes de gravar, então nada da parte 3 entrou. Vejo o trecho exato que não bateu.
+Agora o passo da terceira rodada no teste de fumaça, com uma extração completa nova para isolar os cenários.
 
-Agora os testes novos: um por achado do Copilot nesta rodada, mais um para cada problema que encontrei na auditoria.
+66/66. Agora a prova contrária dos três achados: cada um como cenário isolado, contra o código que está na PR (`2c03a1d`) e contra o novo.
 
-Atualizo a passagem e a fonte completa.
+A falha é do meu comando, não do código: passei o caminho do plugin relativo (`plugin`), e o cenário roda o `init` de dentro de outra pasta. Rodo de novo com o caminho absoluto.
 
-Você tem razão: a primeira correção tapou cada achado no ponto exato e não procurou o resto da mesma família. Desta vez, além dos cinco achados novos, auditei o pacote inteiro atrás de problemas do mesmo tipo e achei mais oito. Corrigi todos, cada um com um passo no teste de fumaça, que agora dá 65/65 no núcleo e na marca. Rodei cada um dos cinco achados do Copilot como cenário isolado: os cinco aparecem no código da PR e não aparecem no novo.
+Três arquivos mudam em relação à PR. Monto o zip, confiro a aplicação e atualizo a passagem.
 
-## Os cinco achados desta rodada
+Corrigi os três bloqueantes, e desta vez por classe, não no ponto exato do achado. O teste de fumaça dá 66/66 no núcleo e na marca. Rodei cada achado como cenário isolado: os três aparecem no código da PR e somem no novo, e os cinco da rodada anterior continuam corrigidos. O `bia-credit-hive-revisao-copilot-3.zip` traz os três arquivos que mudam.
 
-| Achado | Correção |
-|---|---|
-| Link simbólico no clone alterava o original | O clone com link é recusado antes de qualquer cópia. A gravação no clone também confere cada caminho. |
-| Fontes alteradas reaproveitavam aprovação velha | As fontes vêm sempre do commit do inventário (`git show`), nunca da árvore de trabalho. A aprovação vale para o plano e o inventário juntos; o veredito, para o texto da nota e o commit. Refazer o inventário exige `--recomecar`, e a extração anterior fica guardada. |
-| Fonte fora do repositório (`../`) | Cada fonte precisa estar nos arquivos e nas faixas de linhas do plano aprovado. Caminho com `..`, arquivo de configuração e linha fora da faixa dão erro. |
-| Republicar apagava a confirmação | Se o conteúdo extraído não mudou, a nota publicada fica como está, com `verified` e `stable`. Só conteúdo novo volta a `draft`. |
-| Publicação recusada deixava a cópia temporária | A cópia é apagada em qualquer saída, inclusive Ctrl+C. |
+## O que mudou
 
-## O que a auditoria pegou além disso
+**1. Link simbólico na pasta da extração.** O Copilot apontou `rascunhos/<tema>`, mas o mesmo valia para todo o estado da extração. Agora toda leitura e escrita dentro de `.bchive/vault/<extração>/` passa por quatro funções que conferem cada parte do caminho a partir da raiz do repositório. Isso cobre estado, plano, inventário, pacotes, rascunhos, resumos, vereditos e registro de revisão. Um link em qualquer ponto para o comando sem ler nem escrever nada. Também cobre um caso que o Copilot ainda não tinha apontado: veredito APROVADO forjado fora do repositório, alcançado por um link em `revisao/`.
 
-- O `confirmar` reescrevia o frontmatter inteiro e estragava frontmatter aninhado de nota do Companion (`[object Object]`). Agora só troca `status` e `verified`, e confere que o resto ficou igual.
-- Rascunho que fosse link simbólico era publicado. Agora é recusado.
-- Título e descrição com crase iam para os índices. Agora dão erro.
-- Os índices e o log que a publicação escreve não eram conferidos. Agora passam pelas regras de código, credencial, infraestrutura e dado pessoal.
-- Rascunho fora do plano aprovado era publicado. Agora a publicação recusa.
-- O `--squad` deixava publicar numa squad diferente da aprovada. Saiu.
-- Escrever no estado com `node -e` passava pelo hook. Agora qualquer comando de terminal que cite os arquivos do estado é negado.
-- Rodar o portão separando o nome do script do subcomando também passava. Agora o portão é reconhecido em qualquer ordem.
+**2. Nota aprovada que sumia.** Checar, revisar e publicar agora exigem exatamente as notas do plano, nem a mais nem a menos. Para tirar uma nota, é preciso mudar o plano e pedir aprovação de novo.
 
-**Risco que fica:** o hook é guarda-corpo, não sandbox. Um agente que grave um script num arquivo e depois o rode, sem citar no comando o caminho nem o portão, escapa de qualquer lista de comandos. A defesa final continua sendo humana: aprovar o plano, revisar a PR do Vault e confirmar a nota. Isso está registrado na passagem. Se o Copilot apontar exatamente esse caso, a resposta é essa.
+**3. CPF fora das notas.** Uma varredura única de exposição (credencial, infraestrutura e dado pessoal) roda em todo arquivo de texto do `vault/`: `.md`, `.json`, `.yaml`, `.yml`, `.txt`, `.csv` e `.svg`. Para cada tipo, ela usa o leitor do catálogo. Vale para índices e logs de qualquer pasta, tocados ou não, na publicação e no `checar-vault`.
 
-## Aplicar na branch (Git Bash, no mesmo terminal do começo ao fim)
+**Da auditoria:** o `checar-vault` lia através de link no clone, inclusive quando o próprio `vault/` era um link. Agora acusa o link e não lê. Conferi um por um os acessos a arquivo que sobraram no `okf.mjs`: são da cópia temporária, criada sem links, ou do clone e da nota do `confirmar`, os dois já checados contra link.
+
+**Limite que fica:** imagem e PDF não têm scanner. Isso é conferência humana, como o próprio CONTRIBUTING do Vault diz. Se o Copilot apontar, a resposta é essa.
+
+## Aplicar na branch (Git Bash, no mesmo terminal)
 
 ```bash
 REPO=~/repos/bia-credit-hive-plugin
 cd "$REPO" && git switch feat/vault-extractor && git pull
-TMP=$(mktemp -d) && unzip -q ~/Downloads/bia-credit-hive-revisao-copilot-2.zip -d "$TMP" && find "$TMP" -type f | wc -l   # esperado: 7
+TMP=$(mktemp -d) && unzip -q ~/Downloads/bia-credit-hive-revisao-copilot-3.zip -d "$TMP" && find "$TMP" -type f | wc -l   # esperado: 3
 cp -r "$TMP"/bia-credit-hive-plugin/. .
-git status --short          # esperado: 7 arquivos com M
-node testes/smoke.mjs       # esperado: 65/65 passos ok
-git add -A && git commit -m "fix: address second copilot review round" && git push
+git status --short          # esperado: M em scripts/core/okf.mjs, scripts/core/lib/okf.mjs e testes/smoke.mjs
+node testes/smoke.mjs       # esperado: 66/66 passos ok
+git add -A && git commit -m "fix: address third copilot review round" && git push
 ```
 
-Os 7 arquivos esperados no `git status`:
-- `scripts/core/hook.mjs`
-- `scripts/core/okf.mjs`
-- `scripts/core/lib/okf.mjs`
-- `skills/vault-plan/SKILL.md`
-- `skills/vault-extract/SKILL.md`
-- `skills/vault-publish/SKILL.md`
-- `testes/smoke.mjs`
+## Respostas para as três conversas
 
-Se aparecer outro arquivo, pare e traga a saída para o chat.
+1. **Concluir pode sobrescrever arquivos externos:** "Corrigido para todo o estado da extração. Toda leitura e escrita em .bchive/vault/<extração>/ confere cada parte do caminho a partir da raiz do repositório; link em qualquer ponto para o comando sem ler nem escrever. Testes no smoke: rascunhos/<tema> como link (o arquivo de fora fica igual) e revisao/ como link para vereditos forjados."
+2. **Notas aprovadas ausentes:** "Corrigido. Checar, revisão e publicação exigem exatamente o conjunto de notas do plano aprovado, nem a mais nem a menos. Teste no smoke com uma nota apagada depois de concluir."
+3. **CPF em outros arquivos:** "Corrigido. Uma varredura de exposição (credencial, infraestrutura e dado pessoal, com o leitor do catálogo por tipo) roda em todo arquivo de texto de vault/, na publicação e no checar-vault. Testes no smoke com CSV, JSON, log aninhado e índice não tocado. Imagem e PDF seguem com conferência humana."
 
-## Respostas para as cinco conversas da PR
-
-1. **Links simbólicos:** "Corrigido. O clone com link simbólico é recusado antes da cópia, e a gravação no clone confere cada caminho. Teste no smoke: a publicação recusada não escreve no destino do link."
-2. **Fontes alteradas:** "Corrigido. As fontes vêm sempre do commit do inventário (git show), nunca da árvore de trabalho. A aprovação vale para o plano e o inventário; o veredito, para o texto da nota e o commit. Refazer o inventário exige --recomecar. Teste no smoke com alteração não commitada e com commit novo."
-3. **Fontes fora do repositório:** "Corrigido. Cada fonte precisa estar nos arquivos e faixas do plano aprovado; caminho com .., arquivo de configuração e linha fora da faixa dão erro antes da revisão. Teste no smoke."
-4. **Republicar sem mudanças:** "Corrigido. Mesmo conteúdo extraído (hash do conteúdo) preserva a nota publicada com status e verified; só conteúdo novo volta a draft. Teste no smoke nos dois sentidos."
-5. **Cópia temporária:** "Corrigido. A cópia é apagada em qualquer saída do processo, inclusive SIGINT e SIGTERM. Teste no smoke conta as cópias antes e depois de uma recusa."
-
-A passagem registra as duas rodadas, o que a auditoria pegou e o risco que fica. O `bia-credit-hive-fonte-completa.zip` substitui o arquivo da fonte no projeto.
+A passagem registra a terceira rodada e o limite das imagens. O `bia-credit-hive-fonte-completa.zip` substitui o arquivo da fonte no projeto.
