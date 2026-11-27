@@ -230,3 +230,58 @@ código vai para o Vault.
 `feat:` gera aumento minor. Sem quebra de compatibilidade: os comandos, as skills e a configuração existentes não
 mudam.
 <!-- pr-fim -->
+
+>
+>
+>
+Vou tratar os quatro achados como bloqueantes. Antes de mexer: a fonte desta sessão continua aqui, e o teste de fumaça continua em 62/62? Também vou ver como o hook já protege os arquivos dos portões que existem hoje, porque o achado 3 tem um primo que o Copilot não apontou.
+
+O hook já trata como imutáveis o veredito e a mudança arquivada, para qualquer agente. Antes de mexer no terminal do coordenador, vejo como o hook lê o texto do comando.
+
+Agora os testes de cada achado, no teste de fumaça.
+
+63/63. Agora confiro que cada teste novo falha contra o código que está na PR.
+
+O passo novo para no primeiro erro (o CPF). Para mostrar que cada correção é necessária por si, rodo de novo pondo as correções uma a uma sobre o código da PR.
+
+Atualizo a passagem e o zip da fonte.
+
+Os quatro achados eram bloqueantes de verdade, e corrigi todos. O `bia-credit-hive-revisao-copilot.zip` traz só os 4 arquivos que mudam na branch da PR. Com eles, o teste de fumaça passa de 62/62 para 63/63, no núcleo e na marca. Para cada correção, conferi que o teste falha sem ela.
+
+## O que mudou
+
+| Achado | Correção |
+|---|---|
+| **Terminal do coordenador** (um `echo > clone/vault/nota.md` passava fora das duas camadas) | O terminal do `bchive-vault` passou a aceitar só `node .bchive/bin/okf.mjs` nos subcomandos que não são portão humano, um por vez, sem `>`, pipe, `&&`, `;` nem `$(...)`. O hook lê o campo do comando, não a explicação que o agente manda junto. |
+| **CPF e CNPJ sem pontuação** | 11 e 14 dígitos agora são erro quando o dígito verificador é válido. Sem essa conferência, qualquer número de protocolo seria acusado. Com pontuação, o formato basta. |
+| **Aprovação velha** (nota editada depois do APROVADO passava sem nova revisão) | O comando `revisao` agora apaga o veredito quando a nota muda. A publicação exige um APROVADO novo. |
+| **Erro em nota que já estava no Vault** (impresso, mas não travava) | Ajustei em relação à sugestão do Copilot, que travava qualquer erro. Credencial, infraestrutura e dado pessoal travam a publicação em qualquer nota. Formato e código em linha numa nota de outra origem, como as do Companion, saem como aviso. Senão, uma nota legítima de outra pessoa bloquearia toda publicação do Hive. |
+
+**Um problema da mesma família, que o Copilot não apontou:** o coordenador, ou qualquer agente, podia forjar a aprovação do plano ou um veredito editando o `estado.json` ou o arquivo do veredito. Agora o hook nega isso para todos os agentes; só o `okf.mjs` escreve esses arquivos.
+
+## Aplicar na PR (Git Bash)
+
+```bash
+REPO=~/repos/bia-credit-hive-plugin
+cd "$REPO" && git switch feat/vault-extractor && git pull
+TMP=$(mktemp -d) && unzip -q ~/Downloads/bia-credit-hive-revisao-copilot.zip -d "$TMP"
+cp -r "$TMP"/bia-credit-hive-plugin/* .
+git status --short          # esperado: só os 4 arquivos, todos com M
+node testes/smoke.mjs       # esperado: 63/63 passos ok
+git add -A && git commit -m "fix: address copilot review findings" && git push
+```
+
+O título da PR continua `feat: add knowledge vault extractor`. Com o squash, é ele que vira o commit em `main`, e o `fix:` intermediário não conta na versão.
+
+## Respostas para as conversas da PR
+
+O merge automático espera todas as conversas resolvidas. Cole uma resposta em cada conversa e clique em Resolve:
+
+1. **Reject shell redirection and chaining:** "Corrigido. O terminal do coordenador agora aceita só o okf.mjs nos subcomandos que não são portão, um por vez, sem redirecionamento, pipe, encadeamento nem substituição. A checagem lê o campo do comando, não a explicação. Teste no smoke, inclusive com `echo > clone/vault`."
+2. **Detect unformatted CPF and CNPJ:** "Corrigido, com conferência do dígito verificador para 11 e 14 dígitos, para não acusar qualquer número longo. Com pontuação, o formato basta. Teste no smoke."
+3. **Clear stale approval:** "Corrigido. O `revisao` apaga o veredito quando a nota muda, e só pula a nota com veredito válido para o hash atual. Teste no smoke: nota editada depois do APROVADO não é publicada."
+4. **Count validation errors from every checked note:** "Corrigido para exposição: credencial, infraestrutura ou dado pessoal em qualquer nota do Vault travam a publicação, e nada é escrito. Regras de formato do extrator, como código em linha, numa nota que não veio do Hive saem como aviso, para não travar a publicação por uma nota legítima de outra origem. Teste no smoke para os dois casos."
+
+**Risco antigo, não tratado nesta PR:** o agente de entrada `bchive` ainda pode escrever pelo terminal, como o coordenador podia. A passagem registra isso como risco aceito desde o E2. Se o Copilot apontar de novo, a mesma lista de comandos permitidos resolve, mas o certo é tratar em outra PR.
+
+A passagem já registra os quatro achados, a decisão sobre as notas de outra origem e o teste de fumaça em 63/63. O `bia-credit-hive-fonte-completa.zip` substitui o arquivo da fonte no projeto.
