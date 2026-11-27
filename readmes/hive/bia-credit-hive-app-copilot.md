@@ -16,11 +16,11 @@ Um risco segue de pé, e vale ter claro: o link e o patch são brechas de ediç�
 
 **Para aplicar** (Git Bash, descompactando fora do repositório):
 ```bash
-mkdir -p ~/Downloads/bchive-rev2 && unzip -o ~/Downloads/bchive-revisao-copilot-2.zip -d ~/Downloads/bchive-rev2
+mkdir -p ~/Downloads/bchive-rev3 && unzip -o ~/Downloads/bchive-revisao-copilot-3.zip -d ~/Downloads/bchive-rev3
 cd <caminho>/bia-credit-hive-plugin && git checkout fix/preparacao-repositorios-e-node && git pull
-git apply ~/Downloads/bchive-rev2/bchive-revisao-copilot-2.patch
+git apply ~/Downloads/bchive-rev3/bchive-revisao-copilot-3.patch
 node testes/smoke.mjs        # esperado 54/54
-git add -A && git commit -m "fix: resolve linked paths, read patch headers from the patch field only, keep agent presence per session"
+git add -A && git commit -m "fix: reject a redirected state folder in the entry agent path guard"
 git push
 ```
 
