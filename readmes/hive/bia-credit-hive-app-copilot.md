@@ -90,3 +90,26 @@ Se o canário mostrar o aviso de que o hook do agente não rodou, a ferramenta n
 - **F7:** o app não entrega o comando ao hook.
 - **Regra:** limite de agente que importa fica no hook, não só no texto.
 - **Fonte desatualizada:** a passagem agora diz que a fonte do projeto está atrás do PR. A próxima mudança em `hook.mjs`, `bchive.mjs` ou `smoke.mjs` precisa da fonte nova.
+
+```bash
+# 1. descompactar fora do repositório
+mkdir -p ~/Downloads/bchive-e2
+unzip -o ~/Downloads/bchive-limites-agente-entrada.zip -d ~/Downloads/bchive-e2
+
+# 2. ir para o repositório do plugin, na branch do PR
+cd <caminho-do-repositorio>/bia-credit-hive-plugin
+git checkout fix/preparacao-repositorios-e-node
+git status --short                     # tem que vir vazio
+
+# 3. conferir que a estrutura bate com o patch
+ls com.github.copilot/agents/bchive.agent.md scripts/core/hook.mjs testes/smoke.mjs
+
+# 4. aplicar só o patch da marca
+git apply --3way ~/Downloads/bchive-e2/bchive-limites-agente-entrada.patch
+git status --short                     # esperado: 5 arquivos modificados
+
+# 5. testar e commitar
+node testes/smoke.mjs                  # esperado 52/52
+git add -A
+git commit -m "fix: enforce entry agent limits with an agent-scoped preToolUse hook"
+```
